@@ -66,14 +66,14 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
             }
         }
 
-        public RabbitMq AddQueue<TDto>() 
+        public RabbitMq AddQueue<TDto>()
             where TDto : RabbitDTO, new()
         {
             AddQueue<TDto>(new RabbitMqQueueConfig());
             return this;
         }
 
-        public RabbitMq AddQueue<TDto>(RabbitMqQueueConfig config) 
+        public RabbitMq AddQueue<TDto>(RabbitMqQueueConfig config)
             where TDto : RabbitDTO, new()
         {
             var name = new TDto().QueueName();
@@ -107,11 +107,50 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
             return this;
         }
 
+        public RabbitMq AddQueue<TCons, TDto, TDeadCons>()
+           where TCons : RabbitConsumer<TDto>, new()
+           where TDeadCons : RabbitConsumer<TDto>, new()
+           where TDto : RabbitDTO, new()
+        {
+            AddQueue<TCons, TDto, TDeadCons>(new RabbitMqQueueConfig());
+            return this;
+        }
+
+        public RabbitMq AddQueue<TCons, TDto, TDeadCons>(RabbitMqQueueConfig config)
+            where TCons : RabbitConsumer<TDto>, new()
+            where TDeadCons : RabbitConsumer<TDto>, new()
+            where TDto : RabbitDTO, new()
+        {
+            var name = new TDto().QueueName();
+
+            if (_queues.Any(p => p.Name == name))
+                return this;
+
+            var queue = new RabbitMqQueue<TDto>(name, config).AddConsumer<TCons>();
+
+            var deadQueue = new RabbitMqDeadQueue<TDto>(name, config).AddConsumer<TDeadCons>();
+            deadQueue.RabbitConsumer.Requeue = true;
+
+            _queues.Add(queue);
+            _queues.Add(deadQueue);
+
+            return this;
+        }
+
+        //public List<TDto> GetMessages<TDto>() 
+        //    where TDto : RabbitDTO, new()
+        //{
+        //    var queue = _queues.FirstOrDefault(p => p.Name == new TDto().QueueName());
+        //    return queue.GetMessages<TDto>();
+        //}
+
         public void Push<T>(T obj) where T : RabbitDTO
         {
             var queue = _queues.FirstOrDefault(p => p.Name == obj.QueueName());
             if (queue == null)
                 return;
+
+            obj.Auth();
 
             var json = JsonConvert.SerializeObject(obj);
             var body = Encoding.UTF8.GetBytes(json);

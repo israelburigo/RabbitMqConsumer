@@ -1,13 +1,16 @@
-﻿using System.Security.Claims;
+﻿using System.Collections.Generic;
+using System.Security.Claims;
 
 namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 {
     public abstract class RabbitDTO
     {
         public abstract string QueueName();
-        public virtual Claim[] Claims()
+        public Dictionary<string, string> Claims { get; set; }
+
+        public virtual void Auth()
         {
-            return null;
+            Claims = new Dictionary<string, string>();
         }
     }
 }

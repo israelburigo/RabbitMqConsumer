@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
+﻿namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 {
     public class RabbitMqConfig
     {
