@@ -6,11 +6,9 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
     public abstract class RabbitDTO
     {
         public abstract string QueueName();
-        public Dictionary<string, string> Claims { get; set; }
-
-        public virtual void Auth()
+        public virtual void SetupOnPush()
         {
-            Claims = new Dictionary<string, string>();
+            // do nothing
         }
     }
 }

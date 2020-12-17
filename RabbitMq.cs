@@ -20,7 +20,7 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
         public bool Connected { get { return Connection != null && Connection.IsOpen; } }
 
         private static RabbitMq _instance;
-        public static RabbitMq Instance { get { return _instance ?? (_instance = new RabbitMq()); } }
+        public static RabbitMq Instance => _instance ?? (_instance = new RabbitMq());
 
         private RabbitMq()
         {
@@ -136,21 +136,14 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 
             return this;
         }
-
-        //public List<TDto> GetMessages<TDto>() 
-        //    where TDto : RabbitDTO, new()
-        //{
-        //    var queue = _queues.FirstOrDefault(p => p.Name == new TDto().QueueName());
-        //    return queue.GetMessages<TDto>();
-        //}
-
+        
         public void Push<T>(T obj) where T : RabbitDTO
         {
             var queue = _queues.FirstOrDefault(p => p.Name == obj.QueueName());
             if (queue == null)
                 return;
 
-            obj.Auth();
+            obj.SetupOnPush();
 
             var json = JsonConvert.SerializeObject(obj);
             var body = Encoding.UTF8.GetBytes(json);

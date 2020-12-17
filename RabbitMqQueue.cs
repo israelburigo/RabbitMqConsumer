@@ -16,6 +16,7 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
     {
         public Func<string, TDto> JsonResolver { get; private set; }
         public RabbitConsumer<TDto> RabbitConsumer { get; private set; }
+        public Action<TDto, BasicDeliverEventArgs> SetupOnReceive { get; set; }
 
         public RabbitMqQueue(string name, RabbitMqQueueConfig config)
             : base(name, config)
@@ -49,7 +50,7 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
                 {
                     var json = Encoding.UTF8.GetString(e.Body.ToArray());
                     var dto = JsonResolver.Invoke(json);
-                    GenerateAuth(dto);
+                    SetupOnReceive?.Invoke(dto, e);
                     RabbitConsumer.Execute(dto, e);
                     Channel.BasicAck(e.DeliveryTag, false);
                 }
@@ -65,20 +66,6 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
             };
 
             Channel.BasicConsume(Name, false, consumer);
-        }
-
-        private void GenerateAuth(RabbitDTO dto)
-        {
-            if (dto.Claims != null && dto.Claims.Any())
-            {
-                var claims = new List<Claim>();
-
-                foreach (var claimsKey in dto.Claims.Keys)
-                    claims.Add(new Claim(claimsKey, dto.Claims[claimsKey]));
-
-                var identity = new ClaimsIdentity(claims, "Useall");
-                Thread.CurrentPrincipal = new ClaimsPrincipal(identity);
-            }
         }
     }
 
