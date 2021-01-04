@@ -16,7 +16,6 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
     {
         public Func<string, TDto> JsonResolver { get; private set; }
         public RabbitConsumer<TDto> RabbitConsumer { get; private set; }
-        public Action<TDto, BasicDeliverEventArgs> SetupOnReceive { get; set; }
 
         public RabbitMqQueue(string name, RabbitMqQueueConfig config)
             : base(name, config)
@@ -40,6 +39,22 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
             CreateConsumer();
         }
 
+        private string GetFullError(Exception e)
+        {            
+            if (e == null)
+                return null;
+
+            if (e is AggregateException && e.InnerException != null)
+                e = e.InnerException;
+
+            var msgExp = e.Message;
+
+            if (e.InnerException != null)
+                msgExp = $"{msgExp}\n{GetFullError(e.InnerException)}";
+
+            return msgExp;
+        }
+
         private void CreateConsumer()
         {
             var consumer = new EventingBasicConsumer(Channel);
@@ -49,25 +64,41 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
                 try
                 {
                     var json = Encoding.UTF8.GetString(e.Body.ToArray());
-                    var dto = JsonResolver.Invoke(json);
-                    SetupOnReceive?.Invoke(dto, e);
+                    var dto = JsonResolver?.Invoke(json);
                     RabbitConsumer.Execute(dto, e);
                     Channel.BasicAck(e.DeliveryTag, false);
                 }
                 catch (Exception ex)
                 {
-                    RabbitConsumer.Except(ex, e);
+                    try
+                    {
+                        RabbitConsumer.Except(ex, e);
 
-                    if (RabbitConsumer.ExceptionAck)
+                        //if (RabbitConsumer.ExceptionAck)
+                        //    Channel.BasicAck(e.DeliveryTag, false);
+                        //else
+                        //    Channel.BasicNack(e.DeliveryTag, false, RabbitConsumer.Requeue);
+
+                        //Gambiarra para mostrar o erro no Rabbit, o correto não é fazer isso o correto é logar o erro pela função Except(ex, e) chamada acima
+                        // feito para integração do loja
                         Channel.BasicAck(e.DeliveryTag, false);
-                    else
-                        Channel.BasicNack(e.DeliveryTag, false, RabbitConsumer.Requeue);
+                        if (e.BasicProperties.Headers == null)
+                            e.BasicProperties.Headers = new Dictionary<string, object>();
+                        e.BasicProperties.Headers.Add("x-error", GetFullError(ex));
+                        Channel.BasicPublish("", e.RoutingKey + RabbitMqConsts.DL, e.BasicProperties, e.Body);                        
+                    }
+                    catch
+                    {
+                        Channel.BasicNack(e.DeliveryTag, false, false);
+                    }
                 }
             };
 
             Channel.BasicConsume(Name, false, consumer);
         }
     }
+
+   
 
     public class RabbitMqQueue
     {
@@ -78,7 +109,7 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 
         public RabbitMqQueue(string name, RabbitMqQueueConfig config)
         {
-            Name = name;            
+            Name = name;
             Config = config;
         }
 

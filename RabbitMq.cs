@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using Polly;
+using System;
 
 namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 {
@@ -55,9 +56,8 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
                     VirtualHost = vHost
                 };
 
-                Policy.Handle<SocketException>()
-                    .Or<BrokerUnreachableException>()
-                    .RetryForever()
+                Policy.Handle<Exception>()
+                    .WaitAndRetryForever(p => new TimeSpan(0, 0, 10))
                     .Execute(() =>
                     {
                         Connection = factory.CreateConnection();
@@ -136,7 +136,7 @@ namespace Useall.MicroCore.RabbitMQ.Base.Rabbit
 
             return this;
         }
-        
+
         public void Push<T>(T obj) where T : RabbitDTO
         {
             var queue = _queues.FirstOrDefault(p => p.Name == obj.QueueName());
